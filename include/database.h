@@ -5,5 +5,6 @@
 
 void init_database();
 void add_tarefa(const Tarefa tarefa);
+void list_tarefas();
 
 #endif
