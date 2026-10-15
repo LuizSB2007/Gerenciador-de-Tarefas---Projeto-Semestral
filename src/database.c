@@ -82,7 +82,7 @@ void delete_tarefa(const int id){
     int id_lido;
 
     while (fgets(line, sizeof(line), file)) {
-        // Extrai apenas o número do ID sem alterar a string 'line'
+        // verifica se é a linha para exclusao, caso sim, apenas ignora a linha
         if (sscanf(line, "id:%d", &id_lido) == 1 && id_lido == id) continue;
         else fputs(line, temp);
     }
