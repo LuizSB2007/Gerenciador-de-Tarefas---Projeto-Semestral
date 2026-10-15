@@ -20,13 +20,37 @@ O projeto deverá usar structs e uma coleção de registros, separar os módulos
 
 ## Compilação
 
-Com GCC instalado, na pasta raiz do projeto:
+Com GCC e GNU Make instalados, abra o terminal na pasta raiz do projeto e execute:
 
 ```sh
-gcc -Iinclude src/main.c src/tarefas.c src/subtarefas.c src/completude.c src/database.c -o gerenciador
+make
 ```
 
-No Windows, execute `gerenciador.exe`; em ambientes Unix, execute `./gerenciador`.
+No ambiente MinGW configurado neste projeto, se `make` não for reconhecido, use no PowerShell:
+
+```powershell
+C:\mingw64\bin\mingw32-make.exe
+```
+
+O Makefile compila os arquivos `.c` de `src/` e gera `gerenciador.exe`. Para executar no Windows, use:
+
+```powershell
+.\gerenciador.exe
+```
+
+Para apagar o executável e os arquivos intermediários `.o`, execute:
+
+```sh
+make clean
+```
+
+Ou, no PowerShell com o MinGW acima:
+
+```powershell
+C:\mingw64\bin\mingw32-make.exe clean
+```
+
+Se o comando `gcc` não for encontrado, confira se a pasta do MinGW que contém `gcc.exe` está no `PATH`.
 
 ## Estado atual e teste rápido
 
