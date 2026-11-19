@@ -3,10 +3,10 @@
 
 #include "tarefas.h"
 
-void init_database();
-void add_tarefa(const Tarefa tarefa);
-void list_tarefas();
-void update_tarefa(const Tarefa tarefa);
-void delete_tarefa(const int id);
+int carregar_tarefas(const char *caminho, Tarefa tarefas[], int *quantidade);
+int ler_tarefa(const char *caminho, int id, Tarefa *tarefa);
+int salvar_tarefa(const char *caminho, const Tarefa *tarefa);
+int exportar_agenda(const char *caminho, const Tarefa tarefas[],
+                    int quantidade, const char *data);
 
 #endif

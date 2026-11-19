@@ -1,11 +1,9 @@
 #ifndef SUBTAREFAS_H
 #define SUBTAREFAS_H
 
-typedef struct {
-    int id;
-    int tarefa_id;  // ID da tarefa à qual pertence
-    char descricao[100];
-    int concluida;
-} Subtarefa;
+#include "tarefas.h"
+
+int cadastrar_subtarefa(Tarefa tarefas[], int *quantidade, Tarefa nova,
+                        int id_pai, const char *caminho);
 
 #endif

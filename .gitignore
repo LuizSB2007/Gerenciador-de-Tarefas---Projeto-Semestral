@@ -1,1 +1,4 @@
-.o
+*.o
+*.exe
+database/tarefas.bin
+database/agenda_hoje.txt

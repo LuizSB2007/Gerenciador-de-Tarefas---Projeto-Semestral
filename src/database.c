@@ -1,95 +1,104 @@
 #include "database.h"
+#include "completude.h"
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
-void init_database(){
-    FILE *file = fopen("database.txt", "r");   
-
-    if (file == NULL) file = fopen("database.txt", "w"); //verifica se o arquivo existe, caso não exista cria um novo
-    else fclose(file);
-
-    printf("Banco de dados inicializado com sucesso\n");
-}
-
-void add_tarefa(const Tarefa tarefa){
-    FILE *file = fopen("database.txt", "a"); //abre o arquivo para escrita no final do arquivo
-    if(file == NULL){
-        printf("Erro ao abrir o arquivo de banco de dados. \n");
-        return;
+int carregar_tarefas(const char *caminho, Tarefa tarefas[], int *quantidade) {
+    FILE *arquivo = fopen(caminho, "rb");
+    long tamanho;
+    int valido = 1;
+    *quantidade = 0;
+    if (arquivo == NULL)
+        return errno == ENOENT;
+    if (fseek(arquivo, 0, SEEK_END) != 0) {
+        fclose(arquivo);
+        return 0;
     }
-    fprintf(file, "id:%d;descricao:%s;concluida:%d\n", tarefa.id, tarefa.descricao, tarefa.concluida);
-    fclose(file);
-}
-
-void list_tarefas(){
-    FILE *file = fopen("database.txt", "r"); //abre o arquivo para leitura
-    if(file == NULL){
-        printf("Erro ao abrir o arquivo de banco de dados. \n");
-        return;
+    tamanho = ftell(arquivo);
+    if (tamanho < 0 || tamanho % (long)sizeof(Tarefa) != 0 ||
+        tamanho / (long)sizeof(Tarefa) > MAX_TAREFAS) {
+        fclose(arquivo);
+        return 0;
     }
-    char line[256];
-    while(fgets(line, sizeof(line), file)){
-        printf("%s", line);
-    }
-    fclose(file);
-}
-
-void update_tarefa(const Tarefa tarefa){
-    FILE *file = fopen("database.txt", "r");
-    FILE *temp = fopen("temp.txt", "w");
-
-    if(file == NULL || temp == NULL){
-        printf("Erro ao abrir o arquivo de banco de dados. \n");
-        if (file) fclose(file);
-        if (temp) fclose(temp);
-        return;
-    }
-
-    char line[256];
-    int id_lido;
-
-    while (fgets(line, sizeof(line), file)) {
-        // Extrai apenas o número do ID sem alterar a string 'line'
-        if (sscanf(line, "id:%d", &id_lido) == 1 && id_lido == tarefa.id) {
-            // Se for o is buscado, escreve a versao atualizada
-            fprintf(temp, "id:%d;descricao:%s;concluida:%d\n", 
-                    tarefa.id, tarefa.descricao, tarefa.concluida);
-        } else {
-            // Se nao for, mantem a linha original intacta
-            fputs(line, temp);
+    rewind(arquivo);
+    *quantidade = (int)(tamanho / (long)sizeof(Tarefa));
+    for (int i = 0; i < *quantidade; i++) {
+        Tarefa *t = &tarefas[i];
+        if (fread(t, sizeof(Tarefa), 1, arquivo) != 1) {
+            valido = 0;
+            break;
+        }
+        /* Pais sempre precedem filhos: isso tambem impede ciclos. */
+        if (t->id != i + 1 || t->id_pai < 0 || t->id_pai >= t->id ||
+            memchr(t->descricao, '\0', sizeof(t->descricao)) == NULL ||
+            t->descricao[0] == '\0' ||
+            memchr(t->prazo, '\0', sizeof(t->prazo)) == NULL ||
+            !data_valida(t->prazo) || t->prioridade < 1 || t->prioridade > 3 ||
+            (t->concluida != 0 && t->concluida != 1)) {
+            valido = 0;
+            break;
         }
     }
-
-    fclose(file);
-    fclose(temp);
-
-    remove("database.txt");
-    rename("temp.txt", "database.txt");
+    if (fclose(arquivo) != 0)
+        valido = 0;
+    return valido;
 }
 
-void delete_tarefa(const int id){
-    FILE *file = fopen("database.txt", "r");
-    FILE *temp = fopen("temp.txt", "w");
-
-    if(file == NULL || temp == NULL){
-        printf("Erro ao abrir o arquivo de banco de dados. \n");
-        if (file) fclose(file);
-        if (temp) fclose(temp);
-        return;
+int ler_tarefa(const char *caminho, int id, Tarefa *tarefa) {
+    FILE *arquivo = fopen(caminho, "rb");
+    int sucesso;
+    if (arquivo == NULL || id < 1 || id > MAX_TAREFAS) {
+        if (arquivo != NULL)
+            fclose(arquivo);
+        return 0;
     }
+    sucesso = fseek(arquivo, (long)(id - 1) * sizeof(Tarefa), SEEK_SET) == 0 &&
+              fread(tarefa, sizeof(Tarefa), 1, arquivo) == 1;
+    if (fclose(arquivo) != 0)
+        sucesso = 0;
+    return sucesso && tarefa->id == id;
+}
 
-    char line[256];
-    int id_lido;
+int salvar_tarefa(const char *caminho, const Tarefa *tarefa) {
+    FILE *arquivo;
+    int sucesso;
+    if (tarefa->id < 1 || tarefa->id > MAX_TAREFAS)
+        return 0;
+    arquivo = fopen(caminho, "r+b");
+    if (arquivo == NULL && errno == ENOENT)
+        arquivo = fopen(caminho, "w+b");
+    if (arquivo == NULL)
+        return 0;
+    sucesso = fseek(arquivo, (long)(tarefa->id - 1) * sizeof(Tarefa),
+                    SEEK_SET) == 0 &&
+              fwrite(tarefa, sizeof(Tarefa), 1, arquivo) == 1;
+    if (fclose(arquivo) != 0)
+        sucesso = 0;
+    return sucesso;
+}
 
-    while (fgets(line, sizeof(line), file)) {
-        // verifica se é a linha para exclusao, caso sim, apenas ignora a linha
-        if (sscanf(line, "id:%d", &id_lido) == 1 && id_lido == id) continue;
-        else fputs(line, temp);
+int exportar_agenda(const char *caminho, const Tarefa tarefas[],
+                    int quantidade, const char *data) {
+    FILE *arquivo = fopen(caminho, "w");
+    int itens = 0;
+    int sucesso;
+    if (arquivo == NULL)
+        return 0;
+    fprintf(arquivo, "Agenda de %s\n", data);
+    for (int i = 0; i < quantidade; i++) {
+        if (strcmp(tarefas[i].prazo, data) == 0) {
+            fprintf(arquivo, "ID %d | pai %d | %s | prioridade %d | %.0f%%\n",
+                    tarefas[i].id, tarefas[i].id_pai, tarefas[i].descricao,
+                    tarefas[i].prioridade,
+                    calcular_progresso(tarefas, quantidade, tarefas[i].id));
+            itens++;
+        }
     }
-
-    fclose(file);
-    fclose(temp);
-
-    remove("database.txt");
-    rename("temp.txt", "database.txt");
+    if (itens == 0)
+        fprintf(arquivo, "Nenhuma tarefa para hoje.\n");
+    sucesso = !ferror(arquivo);
+    if (fclose(arquivo) != 0)
+        sucesso = 0;
+    return sucesso;
 }
