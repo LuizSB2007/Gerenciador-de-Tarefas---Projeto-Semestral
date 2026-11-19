@@ -5,10 +5,12 @@
 #include <string.h>
 
 int carregar_tarefas(const char *caminho, Tarefa tarefas[], int *quantidade) {
+    /* Ao iniciar, reconstitui o vetor a partir dos registros do arquivo binario. */
     FILE *arquivo = fopen(caminho, "rb");
     long tamanho;
     int valido = 1;
     *quantidade = 0;
+    /* Sem arquivo ainda, o programa comeca com a lista vazia. */
     if (arquivo == NULL)
         return errno == ENOENT;
     if (fseek(arquivo, 0, SEEK_END) != 0) {
@@ -16,8 +18,8 @@ int carregar_tarefas(const char *caminho, Tarefa tarefas[], int *quantidade) {
         return 0;
     }
     tamanho = ftell(arquivo);
-    if (tamanho < 0 || tamanho % (long)sizeof(Tarefa) != 0 ||
-        tamanho / (long)sizeof(Tarefa) > MAX_TAREFAS) {
+    /* Cada registro ocupa exatamente sizeof(Tarefa) bytes. */
+    if (tamanho < 0 || tamanho % (long)sizeof(Tarefa) != 0 || tamanho / (long)sizeof(Tarefa) > MAX_TAREFAS) {
         fclose(arquivo);
         return 0;
     }
@@ -29,13 +31,9 @@ int carregar_tarefas(const char *caminho, Tarefa tarefas[], int *quantidade) {
             valido = 0;
             break;
         }
-        /* Pais sempre precedem filhos: isso tambem impede ciclos. */
-        if (t->id != i + 1 || t->id_pai < 0 || t->id_pai >= t->id ||
-            memchr(t->descricao, '\0', sizeof(t->descricao)) == NULL ||
-            t->descricao[0] == '\0' ||
-            memchr(t->prazo, '\0', sizeof(t->prazo)) == NULL ||
-            !data_valida(t->prazo) || t->prioridade < 1 || t->prioridade > 3 ||
-            (t->concluida != 0 && t->concluida != 1)) {
+        /* Valida IDs, vinculos, descricao, data e demais campos do registro. */
+        if (t->id != i + 1 || t->id_pai < 0 || t->id_pai >= t->id || memchr(t->descricao, '\0', sizeof(t->descricao)) == NULL ||
+            t->descricao[0] == '\0' || memchr(t->prazo, '\0', sizeof(t->prazo)) == NULL || !data_valida(t->prazo) || t->prioridade <1 || t->prioridade > 3 || (t->concluida != 0 && t->concluida != 1)) {
             valido = 0;
             break;
         }
@@ -53,8 +51,8 @@ int ler_tarefa(const char *caminho, int id, Tarefa *tarefa) {
             fclose(arquivo);
         return 0;
     }
-    sucesso = fseek(arquivo, (long)(id - 1) * sizeof(Tarefa), SEEK_SET) == 0 &&
-              fread(tarefa, sizeof(Tarefa), 1, arquivo) == 1;
+    /* fseek acessa diretamente o registro pelo ID, sem ler o arquivo todo. */
+    sucesso = fseek(arquivo, (long)(id - 1) * sizeof(Tarefa), SEEK_SET) == 0 && fread(tarefa, sizeof(Tarefa), 1, arquivo) == 1;
     if (fclose(arquivo) != 0)
         sucesso = 0;
     return sucesso && tarefa->id == id;
@@ -65,21 +63,20 @@ int salvar_tarefa(const char *caminho, const Tarefa *tarefa) {
     int sucesso;
     if (tarefa->id < 1 || tarefa->id > MAX_TAREFAS)
         return 0;
+    /* Atualiza um registro existente ou cria o arquivo no primeiro cadastro. */
     arquivo = fopen(caminho, "r+b");
     if (arquivo == NULL && errno == ENOENT)
         arquivo = fopen(caminho, "w+b");
     if (arquivo == NULL)
         return 0;
-    sucesso = fseek(arquivo, (long)(tarefa->id - 1) * sizeof(Tarefa),
-                    SEEK_SET) == 0 &&
-              fwrite(tarefa, sizeof(Tarefa), 1, arquivo) == 1;
+    sucesso = fseek(arquivo, (long)(tarefa->id - 1) * sizeof(Tarefa), SEEK_SET) == 0 && fwrite(tarefa, sizeof(Tarefa), 1, arquivo) == 1;
     if (fclose(arquivo) != 0)
         sucesso = 0;
     return sucesso;
 }
 
-int exportar_agenda(const char *caminho, const Tarefa tarefas[],
-                    int quantidade, const char *data) {
+int exportar_agenda(const char *caminho, const Tarefa tarefas[], int quantidade, const char *data) {
+    /* Gera um relatorio de texto apenas com tarefas previstas para a data. */
     FILE *arquivo = fopen(caminho, "w");
     int itens = 0;
     int sucesso;
