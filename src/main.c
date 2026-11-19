@@ -45,12 +45,12 @@ static int ler_numero(const char *mensagem, int *numero) {
     int resultado = ler_texto(mensagem, texto, sizeof(texto));
     if (resultado != 1)
         return resultado;
+    /* strtol permite detectar letras, valores fora do intervalo e erros. */
     errno = 0;
     valor = strtol(texto, &fim, 10);
     while (isspace((unsigned char)*fim))
         fim++;
-    if (errno == ERANGE || fim == texto || *fim != '\0' ||
-        valor < INT_MIN || valor > INT_MAX) {
+    if (errno == ERANGE || fim == texto || *fim != '\0' || valor < INT_MIN || valor > INT_MAX) {
         puts("Digite um numero inteiro valido.");
         return 0;
     }
@@ -60,21 +60,18 @@ static int ler_numero(const char *mensagem, int *numero) {
 
 static int ler_nova_tarefa(Tarefa *nova) {
     char prazo_entrada[32];
-    int resultado = ler_texto("Descricao (ate 99 caracteres): ",
-                              nova->descricao, sizeof(nova->descricao));
+    int resultado = ler_texto("Descricao (ate 99 caracteres): ", nova->descricao, sizeof(nova->descricao));
     if (resultado != 1)
         return resultado;
-    resultado = ler_texto("Prazo (DD/MM/AAAA ou DD MM AAAA): ", prazo_entrada,
-                         sizeof(prazo_entrada));
+    resultado = ler_texto("Prazo (DD/MM/AAAA ou DD MM AAAA): ", prazo_entrada, sizeof(prazo_entrada));
     if (resultado != 1)
         return resultado;
-    if (!normalizar_data_prazo(prazo_entrada, nova->prazo,
-                              sizeof(nova->prazo))) {
+    /* Aceita DD/MM/AAAA ou DD MM AAAA; internamente usa AAAA-MM-DD. */
+    if (!normalizar_data_prazo(prazo_entrada, nova->prazo, sizeof(nova->prazo))) {
         puts("Data invalida.");
         return 0;
     }
-    resultado = ler_numero("Prioridade (1 baixa, 2 media, 3 alta): ",
-                           &nova->prioridade);
+    resultado = ler_numero("Prioridade (1 baixa, 2 media, 3 alta): ", &nova->prioridade);
     if (resultado != 1)
         return resultado;
     if (nova->prioridade < 1 || nova->prioridade > 3) {
@@ -85,14 +82,17 @@ static int ler_nova_tarefa(Tarefa *nova) {
 }
 
 int main(void) {
+    /* O vetor guarda ate 100 tarefas em memoria durante a execucao. */
     Tarefa tarefas[MAX_TAREFAS];
     int quantidade, opcao, id, resultado;
     const char *banco = "database/tarefas.bin";
 
+    /* Recupera os registros salvos antes de abrir o menu. */
     if (!carregar_tarefas(banco, tarefas, &quantidade)) {
         puts("Erro: banco invalido ou sem acesso. Nenhum dado foi alterado.");
         return 1;
     }
+    /* Repete o menu ate o usuario escolher 0 ou encerrar a entrada. */
     for (;;) {
         Tarefa nova = {0};
         puts("\nGERENCIADOR DE TAREFAS");
@@ -105,6 +105,7 @@ int main(void) {
         if (resultado == 0)
             continue;
 
+        /* O cadastro e comum; a subtarefa tambem precisa de um pai valido. */
         if (opcao == 1 || opcao == 2) {
             if (quantidade >= MAX_TAREFAS) {
                 puts("Limite de 100 tarefas atingido.");
@@ -141,6 +142,7 @@ int main(void) {
             if (resultado == 1)
                 printf("Tarefa %d cadastrada.\n", quantidade);
         } else if (opcao == 3) {
+            /* A listagem e o progresso sao calculados em outros modulos. */
             listar_tarefas(tarefas, quantidade);
         } else if (opcao == 4) {
             resultado = ler_numero("ID a concluir: ", &id);
@@ -152,6 +154,7 @@ int main(void) {
                 return 1;
             }
         } else if (opcao == 5) {
+            /* Exporta apenas tarefas com prazo igual a data local de hoje. */
             char hoje[11];
             time_t agora = time(NULL);
             struct tm *data = localtime(&agora);

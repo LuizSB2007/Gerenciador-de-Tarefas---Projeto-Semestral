@@ -20,6 +20,7 @@ static int data_iso_valida(const char *data) {
     if (sscanf(data, "%4d-%2d-%2d", &ano, &mes, &dia) != 3 ||
         ano < 1 || mes < 1 || mes > 12)
         return 0;
+    /* Considera anos bissextos para validar o dia de fevereiro. */
     if (ano % 400 == 0 || (ano % 4 == 0 && ano % 100 != 0))
         dias[1] = 29;
     return dia >= 1 && dia <= dias[mes - 1];
@@ -36,6 +37,7 @@ int data_valida(const char *data) {
 }
 
 int normalizar_data_prazo(const char *entrada, char saida[], size_t tamanho) {
+    /* Converte a data digitada para AAAA-MM-DD*/
     char copia[32];
     int dia, mes, ano;
 
@@ -48,7 +50,7 @@ int normalizar_data_prazo(const char *entrada, char saida[], size_t tamanho) {
     if (strchr(copia, '/') != NULL || strchr(copia, ' ') != NULL) {
         if (sscanf(copia, "%d/%d/%d", &dia, &mes, &ano) == 3 ||
             sscanf(copia, "%d %d %d", &dia, &mes, &ano) == 3) {
-            /* aceita o padrao comum DD/MM/AAAA ou DD MM AAAA */
+            /* aceita o padrao comum DD/MM/AAAA ou DD MM AAAA*/
         } else {
             return 0;
         }
@@ -84,6 +86,7 @@ int normalizar_data_prazo(const char *entrada, char saida[], size_t tamanho) {
 }
 
 int tem_filhos(const Tarefa tarefas[], int quantidade, int id) {
+    /* Uma tarefa e pai quando outro registro aponta para seu ID. */
     for (int i = 0; i < quantidade; i++) {
         if (tarefas[i].id_pai == id)
             return 1;
@@ -92,12 +95,12 @@ int tem_filhos(const Tarefa tarefas[], int quantidade, int id) {
 }
 
 /* Retorno: 1 = sucesso, 0 = entrada invalida, -1 = falha de arquivo. */
-int cadastrar_tarefa(Tarefa tarefas[], int *quantidade, Tarefa nova,
-                     const char *caminho) {
+int cadastrar_tarefa(Tarefa tarefas[], int *quantidade, Tarefa nova, const char *caminho) {
     if (*quantidade >= MAX_TAREFAS) {
         puts("Limite de 100 tarefas atingido.");
         return 0;
     }
+    /* IDs seguem a ordem de cadastro; primeiro salva, depois atualiza o vetor. */
     nova.id = *quantidade + 1;
     nova.concluida = 0;
     if (!salvar_tarefa(caminho, &nova))
@@ -107,8 +110,8 @@ int cadastrar_tarefa(Tarefa tarefas[], int *quantidade, Tarefa nova,
     return 1;
 }
 
-static void listar_nivel(const Tarefa tarefas[], int quantidade,
-                         int id_pai, int nivel) {
+static void listar_nivel(const Tarefa tarefas[], int quantidade, int id_pai, int nivel) {
+    /* Recursao: imprime cada filho e depois visita suas subtarefas. */
     for (int i = 0; i < quantidade; i++) {
         if (tarefas[i].id_pai == id_pai) {
             printf("%*s%d. %s | %s | prioridade %d | %.0f%%\n",
@@ -127,13 +130,13 @@ void listar_tarefas(const Tarefa tarefas[], int quantidade) {
         listar_nivel(tarefas, quantidade, 0, 0);
 }
 
-int concluir_tarefa(Tarefa tarefas[], int quantidade, int id,
-                    const char *caminho) {
+int concluir_tarefa(Tarefa tarefas[], int quantidade, int id, const char *caminho) {
     Tarefa tarefa;
     if (id < 1 || id > quantidade) {
         puts("ID inexistente.");
         return 0;
     }
+    /* So folhas podem ser concluidas manualmente; pais usam o progresso medio. */
     if (tem_filhos(tarefas, quantidade, id)) {
         puts("Conclua as subtarefas: o progresso do pai e calculado.");
         return 0;
